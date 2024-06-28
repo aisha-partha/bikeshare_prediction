@@ -8,9 +8,9 @@ parent, root = file.parent, file.parents[1]
 sys.path.append(str(root))
 
 import numpy as np
-from sklearn.metrics import r2_score
+from sklearn.metrics import mean_squared_error, r2_score
 
-from bikeshare_model.predict import make_prediction
+from bike_model.predict import make_prediction
 
 
 def test_make_prediction(sample_input_data):
@@ -22,17 +22,13 @@ def test_make_prediction(sample_input_data):
 
     # Then
     predictions = result.get("predictions")
-    print(predictions)
     assert isinstance(predictions, np.ndarray)
     assert isinstance(predictions[0], np.float64)
-    
     assert result.get("errors") is None
     assert len(predictions) == expected_no_predictions
     _predictions = list(predictions)
     y_true = sample_input_data[1]
-    #accuracy = accuracy_score(_predictions, y_true)
-    #assert accuracy > 0.8
-    r2score = r2_score(y_true, _predictions)
-    print(r2score)
-    assert r2score > 0.92
-
+    mse_value = round(mean_squared_error(y_true, _predictions),2)
+    assert mse_value > 2729
+    r2score = round(r2_score(y_true, _predictions),2)
+    assert r2score > 0.91

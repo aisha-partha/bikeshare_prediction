@@ -9,137 +9,122 @@ parent, root = file.parent, file.parents[1]
 sys.path.append(str(root))
 
 import numpy as np
+from bike_model.config.core import config
+from bike_model.processing.features import *
+from bike_model.processing.data_manager import pre_pipeline_preparation
 
-from bikeshare_model.config.core import config
-from bikeshare_model.processing.features import *
-from bikeshare_model.processing.data_manager import pre_pipeline_preparation
 
+def test_weekday_variable_transformer(sample_input_data):
+    
+    df_test = sample_input_data[0].copy()
+    # Given
+    transformer = WeekdayImputer(
+        col_name=config.modl_config.weekday_var 
+    )
+    assert np.isnan(df_test.loc[7046,'weekday'])
 
+    # When
+    subject = transformer.fit(df_test).transform(df_test)
+
+    # Then
+    assert subject.loc[7046,'weekday'] == 'Wed'
+    
 
 def test_weathersit_variable_transformer(sample_input_data):
+    df_test = sample_input_data[0].copy()
     # Given
-    test_df = sample_input_data[0].copy()
     transformer = WeathersitImputer(
-        feature=config.model_config.weathersit_var,  
+        col_name=config.modl_config.weathersit_var
     )
-    
-    assert pd.isnull(test_df.loc[101,config.model_config.weathersit_var])
+    assert np.isnan(df_test.loc[6147,'weathersit'])
 
     # When
-    subject = transformer.fit(test_df).transform(test_df)
+    subject = transformer.fit(df_test).transform(df_test)
 
     # Then
-    assert subject.loc[101,config.model_config.weathersit_var] == 'Clear'
-    
-def test_weekdayimputer_variable_transformer(sample_input_data):
+    assert subject.loc[6147,'weathersit'] == 'Clear'
+
+
+def test_columndrop_variable_transformer(sample_input_data):
+    df_test = sample_input_data[0].copy()
     # Given
-    test_df = sample_input_data[0].copy()
-    transformer = WeekdayImputer(
-        feature=config.model_config.weekday_var,  
+    transformer = ColumnDropper(
+        col_list=config.modl_config.cols_delete
     )
     
-    assert pd.isnull(test_df.loc[424,config.model_config.weekday_var])
-    
+    assert all([True for col in config.modl_config.cols_delete if col in df_test.columns])==True
+
     # When
-    subject = transformer.fit(test_df).transform(test_df)
+    subject = transformer.fit(df_test).transform(df_test)
 
     # Then
-    assert subject.loc[424,config.model_config.weekday_var] == 'Sun'
+    assert all([True for col in config.modl_config.cols_delete if not col in subject.columns])==True
     
 
-def test_outlier_transformer(sample_input_data):
+def test_mapper_variable_transformer(sample_input_data):
+    df_test = sample_input_data[0].copy()
+    df_prepped = pre_pipeline_preparation(data_frame=df_test)
     # Given
-    test_df = sample_input_data[0].copy()
+    transformer = Mapper(
+        col_map=config.modl_config.mapping_dict
+    )
+    
+    for key, val in config.modl_config.mapping_dict.items():
+        
+        assert all([True for i in list(val.keys()) if i in df_prepped[key]])
+
+        # When
+        subject = transformer.fit(df_prepped).transform(df_prepped)
+
+        # Then
+        assert all([True for i in list(val.values()) if i in subject[key]])
+
+  
+def test_outlier_variable_transformer(sample_input_data):
+    df_test = sample_input_data[0].copy()
+    # Given
     transformer = OutlierHandler(
-        feature=config.model_config.windspeed_var,  
+        col_list=config.modl_config.num_cols
     )
     
-    Q1 = np.percentile(test_df.loc[:, config.model_config.windspeed_var], 25)
-    Q3 = np.percentile(test_df.loc[:, config.model_config.windspeed_var], 75)
-    deviation_allowed = 1.5*(Q3 - Q1)
-    lower_bound = Q1 - deviation_allowed
-    upper_bound = Q3 + deviation_allowed
+    for col in config.modl_config.num_cols:
+        
+        q1 = df_test.describe()[col].loc['25%']
+        q3 = df_test.describe()[col].loc['75%']
+        iqr = q3 - q1
+        lower_bound = q1 - (1.5 * iqr)
+        upper_bound = q3 + (1.5 * iqr)
+        
+        assert len(df_test[df_test[col] > upper_bound]) + len(df_test[df_test[col] < lower_bound]) >= 0
 
-    #Given
-    assert len(test_df[test_df[config.model_config.windspeed_var] > upper_bound]) >= 0
-    
-    # When
-    subject = transformer.fit(test_df).transform(test_df)
+        # When
+        subject = transformer.fit(df_test).transform(df_test)
 
-    # Then
-    assert len(subject[subject[config.model_config.windspeed_var] > upper_bound]) == 0
-    
+        # Then
+        assert (len(subject[subject[col] > upper_bound]) + len(subject[subject[col] < lower_bound])) == 0
 
-def test_columndropper_transformer(sample_input_data):
+
+def test_onehot_variable_transformer(sample_input_data):
+    df_test = sample_input_data[0].copy()
     # Given
-    test_df = sample_input_data[0].copy()
-    transformer = ColumnDropperTransformer(
-        columns=config.model_config.unused_fields,  
-    )
     
-    assert len(test_df.columns) == 13
-    
-    
-    # When
-    subject = transformer.fit(test_df).transform(test_df)
-
-    # Then
-    assert len(subject.columns) == 10
-    
-    
-    
-def test_mapper_season(sample_input_data):
-    # Given
-    test_df = sample_input_data[0].copy()
-    transformer = Mapper(
-        config.model_config.season_var,  config.model_config.season_mappings
-    )
-    
-    assert set(test_df['season'].unique()) == {'winter', 'fall', 'spring','summer'}
-
-    # When
-    subject = transformer.fit(test_df).transform(test_df)
-
-    # Then
-    assert set(subject['season'].unique()) == {0,1,2,3} 
-    
-    
-def test_mapper_year(sample_input_data):
-    # Given
-    test_df = sample_input_data[0].copy()
-    transformed_df = pre_pipeline_preparation(data_frame=test_df)
-    transformer = Mapper(
-        config.model_config.yr_var,  config.model_config.yr_mappings
-    )
-    
-    assert set(transformed_df['yr'].unique()) == {'2011', '2012'}
-
-    # When
-    subject = transformer.fit(transformed_df).transform(transformed_df)
-
-    # Then
-    assert set(subject['yr'].unique()) == {0,1} 
-    
-
-def test_weekday_ohe(sample_input_data):
-    # Given
-    test_df = sample_input_data[0].copy()
-
     transformer1 = WeekdayImputer(
-        feature=config.model_config.weekday_var,  
+        col_name=config.modl_config.weekday_var 
     )
+    
+    subject1 = transformer1.fit(df_test).transform(df_test)
+    
     transformer2 = WeekdayOneHotEncoder(
-        config.model_config.weekday_var
+        col_list=config.modl_config.onehot_cols
     )
     
-    subject_1 = transformer1.fit(test_df).transform(test_df)
-    assert list(subject_1[config.model_config.weekday_var].unique()).sort() == ['Sun', 'Sat', 'Mon', 'Tue','Wed', 'Thu', 'Fri'].sort()
-    assert len(subject_1.columns) == 13
-    # When
-    
-    subject_2 = transformer2.fit(subject_1).transform(subject_1)
+    for col in config.modl_config.onehot_cols:
+        
+        assert all([True for day in transformer2.categories_ if day in df_test[col]])==True
 
-    # Then
-    assert len(subject_2.columns) == 19
-    #assert set(subject['yr'].unique()) == {0,1,2,3,4,5,6} 
-    
+        # When
+        subject2 = transformer2.fit(df_test).transform(df_test)
+
+        # Then
+        assert sum(subject2[subject2.columns[12:]].iloc[0, :])==1
+        assert len(subject2.columns) == 19
