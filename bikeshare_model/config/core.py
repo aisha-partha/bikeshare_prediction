@@ -8,6 +8,7 @@ sys.path.append(str(root))
 from typing import Dict, List
 from pydantic import BaseModel
 from strictyaml import YAML, load
+import datetime
 
 import bikeshare_model
 
@@ -54,7 +55,8 @@ class ModelConfig(BaseModel):
     atemp_var:str
     hum_var:str
     windspeed_var: str
-
+   
+    
     holiday_mappings: Dict[str, int]
     workingday_mappings: Dict[str, int]
     weathersit_mappings: Dict[str, int]

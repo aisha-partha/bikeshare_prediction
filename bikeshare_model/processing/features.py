@@ -32,12 +32,12 @@ class WeathersitImputer(BaseEstimator, TransformerMixin):
         self.feature = feature
 
     def transform(self, X):
-        X[self.feature].fillna(self.params_, inplace=True)
-        return X
+        df = X.copy()
+        df[self.feature] = df[self.feature].fillna(self.params_)
+        return df
 
     def fit(self, X,y=None):
-        df = X.copy()
-        feature_mode = df[self.feature].value_counts().index[0]
+        feature_mode = X[self.feature].value_counts().index[0]
         self.params_ = feature_mode
         return self
     
